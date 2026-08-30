@@ -1,0 +1,16 @@
+# STM32 Derleme Çıktıları
+Debug/
+Release/
+*.elf
+*.hex
+*.map
+*.o
+*.d
+*.su
+
+# IDE Ayarları ve Geçici Dosyalar
+.metadata/
+.settings/
+*.launch
+
+main.c
