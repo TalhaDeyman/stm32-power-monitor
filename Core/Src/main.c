@@ -93,10 +93,10 @@ int main(void)
   /* USER CODE END 2 */
 
   /* Initialize leds */
-  //BSP_LED_Init(LED_GREEN);
+  BSP_LED_Init(LED_GREEN);
 
   /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
-  //BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
+  BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
 
   /* Initialize COM1 port (115200, 8 bits (7-bit data + 1 stop bit), no parity */
   BspCOMInit.BaudRate   = 115200;
@@ -111,17 +111,9 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (1)
   {
-	  if ((GPIOC->IDR & (1U << 13)) == 0)   /* Control the IDR register of the C Port to check button */
-	  	          {
-	  	              GPIOA->BSRR = (1U << 5);	/* Set the BSRR register's BS5 pin of the A port to high if button is pressed */
-	  	          }
-	  	          else
-	  	          {
-	  	              GPIOA->BSRR = (1U << (5 + 16));	/* Set the BSRR register's BR5 pin of the A port to low if button is released */
-	  	          }
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -186,7 +178,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : PC13 */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
@@ -197,11 +189,23 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI4_15_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_15_IRQn);
+
   /* USER CODE BEGIN MX_GPIO_Init_2 */
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)	/* Takes the pin argument */
+{
+    if (GPIO_Pin == GPIO_PIN_13)	/* Check the passed pin, if it is PIN13 toggle the user led */
+    {
+        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5); /* Set the PA5 pin of the A port to HIGH if it is LOW and set to LOW if it is HIGH */
+    }
+}
+
 
 /* USER CODE END 4 */
 
