@@ -146,6 +146,14 @@ void SysTick_Handler(void)
 void EXTI4_15_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI4_15_IRQn 0 */
+	 if ((EXTI->FPR1 & EXTI_FPR1_FPIF13) != 0)
+	  {
+
+	      GPIOA->ODR ^= GPIO_ODR_OD5;
+
+
+	      EXTI->FPR1 = EXTI_FPR1_FPIF13;
+	  }
 
   /* USER CODE END EXTI4_15_IRQn 0 */
 	HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_13);

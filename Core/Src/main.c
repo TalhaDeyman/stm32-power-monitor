@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stm32c0xx.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,7 +51,8 @@ COM_InitTypeDef BspCOMInit;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 /* USER CODE BEGIN PFP */
-
+void EXTI4_15_IRQHandler(void);
+void GPIO_Interrupt_Init(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -67,7 +68,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+	 GPIO_Interrupt_Init();
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -87,7 +88,7 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
-  MX_GPIO_Init();
+  // MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
   /* GPIOC clock */
   /* USER CODE END 2 */
@@ -198,14 +199,30 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)	/* Takes the pin argument */
+void GPIO_Interrupt_Init(void)
 {
-    if (GPIO_Pin == GPIO_PIN_13)	/* Check the passed pin, if it is PIN13 toggle the user led */
-    {
-        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5); /* Set the PA5 pin of the A port to HIGH if it is LOW and set to LOW if it is HIGH */
-    }
-}
 
+    RCC->IOPENR |= (RCC_IOPENR_GPIOAEN | RCC_IOPENR_GPIOCEN);
+
+    GPIOA->MODER &= ~GPIO_MODER_MODE5;
+    GPIOA->MODER |= GPIO_MODER_MODE5_0;
+
+
+    GPIOC->MODER &= ~GPIO_MODER_MODE13;
+
+
+    EXTI->EXTICR[3] &= ~(0xFFU << 8);
+    EXTI->EXTICR[3] |= (0x02U << 8);
+
+
+    EXTI->FTSR1 |= EXTI_FTSR1_FT13;
+
+
+    EXTI->IMR1 |= EXTI_IMR1_IM13;
+
+
+    NVIC_EnableIRQ(EXTI4_15_IRQn);
+}
 
 /* USER CODE END 4 */
 
