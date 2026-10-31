@@ -12,7 +12,11 @@ This repository documents my journey of developing an embedded power monitor app
 ## 4. Timer_interrupt_for_periodic_LED_control:
 ![Timer interrupt for periodic LED control](images/Timer_interrupt_for_periodic_LED_control.gif)
 ## 5. UART polling-based communication:
+<<<<<<< HEAD
 ![UART polling-based communication](images/Add UART polling-based communication.png)
+=======
+![UART polling-based communication](images/Add_UART_polling_based_communication.png)
+>>>>>>> 9013f84 (Add UART polling-based communication)
 
 
 
