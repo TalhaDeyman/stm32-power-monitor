@@ -10,3 +10,5 @@ This repository documents my journey of developing an embedded power monitor app
 
 ![Register Level EXTI button interrupt](images/Register_level_EXTI_interrupt_for_user_button.gif)
 
+![Timer interrupt for periodic LED control](images/Timer_interrupt_for_periodic_LED_control.gif)
+

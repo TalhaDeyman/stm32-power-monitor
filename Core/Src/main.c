@@ -43,21 +43,29 @@
 
 COM_InitTypeDef BspCOMInit;
 
-/* USER CODE BEGIN PV */
+TIM_HandleTypeDef htim3;
 
+/* USER CODE BEGIN PV */
+volatile uint32_t ms_ticks = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
-void EXTI4_15_IRQHandler(void);
-void GPIO_Interrupt_Init(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM3)
+    {
+        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+    }
+}
 /* USER CODE END 0 */
 
 /**
@@ -68,7 +76,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	 GPIO_Interrupt_Init();
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -88,8 +96,10 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
-  // MX_GPIO_Init();
+  MX_GPIO_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+  HAL_TIM_Base_Start_IT(&htim3);
   /* GPIOC clock */
   /* USER CODE END 2 */
 
@@ -118,6 +128,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
   }
   /* USER CODE END 3 */
 }
@@ -159,6 +170,51 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 47999;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 999;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -179,7 +235,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : PC13 */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
@@ -190,39 +246,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI4_15_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI4_15_IRQn);
-
   /* USER CODE BEGIN MX_GPIO_Init_2 */
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
-void GPIO_Interrupt_Init(void)
-{
-
-    RCC->IOPENR |= (RCC_IOPENR_GPIOAEN | RCC_IOPENR_GPIOCEN);
-
-    GPIOA->MODER &= ~GPIO_MODER_MODE5;
-    GPIOA->MODER |= GPIO_MODER_MODE5_0;
-
-
-    GPIOC->MODER &= ~GPIO_MODER_MODE13;
-
-
-    EXTI->EXTICR[3] &= ~(0xFFU << 8);
-    EXTI->EXTICR[3] |= (0x02U << 8);
-
-
-    EXTI->FTSR1 |= EXTI_FTSR1_FT13;
-
-
-    EXTI->IMR1 |= EXTI_IMR1_IM13;
-
-
-    NVIC_EnableIRQ(EXTI4_15_IRQn);
-}
 
 /* USER CODE END 4 */
 
