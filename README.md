@@ -12,3 +12,5 @@ Register_level_EXTI_interrupt_for_user_button:
 Timer_interrupt_for_periodic_LED_control:
 ![Timer interrupt for periodic LED control](images/Timer_interrupt_for_periodic_LED_control.gif)
 
+![Timer interrupt for periodic LED control](images/Timer_interrupt_for_periodic_LED_control.gif)
+
