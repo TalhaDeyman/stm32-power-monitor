@@ -21,6 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <string.h>
 #include "stm32c0xx.h"
 /* USER CODE END Includes */
 
@@ -40,12 +41,21 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-volatile uint32_t ms_ticks = 0;
-uint8_t rx_data;
+static volatile uint8_t uart_rx_byte = 0;
+
+static volatile uint8_t uart_response_code = 0;
+
+#define UART_RESPONSE_NONE       0U
+#define UART_RESPONSE_LED_ON     1U
+#define UART_RESPONSE_LED_OFF    2U
+#define UART_RESPONSE_TOGGLE     3U
+#define UART_RESPONSE_STATUS     4U
+#define UART_RESPONSE_INVALID    5U
+#define UART_RESPONSE_ERROR     6U
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -53,7 +63,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+static void UART_SendText(const char *text);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -92,13 +102,21 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  uint8_t message[] = "STM32 UART Ready\r\n";
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
 
-  HAL_UART_Transmit(&huart2,
-                   message,
-                   sizeof(message) - 1,
-                   HAL_MAX_DELAY);
-  /* GPIOC clock */
+  UART_SendText("\r\nSTM32 UART LED Control Ready\r\n");
+
+  UART_SendText("Commands:\r\n");
+  UART_SendText("1 = LED ON\r\n");
+  UART_SendText("0 = LED OFF\r\n");
+  UART_SendText("t = LED TOGGLE\r\n");
+  UART_SendText("s = LED STATUS\r\n");
+
+  if (HAL_UART_Receive_IT(&huart2, (uint8_t *)&uart_rx_byte, 1) != HAL_OK)
+  {
+      Error_Handler();
+  }
+
   /* USER CODE END 2 */
 
   /* Initialize leds */
@@ -112,15 +130,60 @@ int main(void)
 
   while (1)
   {
+	  uint8_t response = uart_response_code;
+
+	      if (response != UART_RESPONSE_NONE)
+	      {
+	          uart_response_code = UART_RESPONSE_NONE;
+
+	          switch (response)
+	          {
+	              case UART_RESPONSE_LED_ON:
+
+	                  UART_SendText("LED ON\r\n");
+	                  break;
+
+	              case UART_RESPONSE_LED_OFF:
+
+	                  UART_SendText("LED OFF\r\n");
+	                  break;
+
+	              case UART_RESPONSE_TOGGLE:
+
+	                  UART_SendText("LED TOGGLED\r\n");
+	                  break;
+
+	              case UART_RESPONSE_STATUS:
+
+	                  if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5) == GPIO_PIN_SET)
+	                  {
+	                      UART_SendText("LED STATUS: ON\r\n");
+	                  }
+	                  else
+	                  {
+	                      UART_SendText("LED STATUS: OFF\r\n");
+	                  }
+
+	                  break;
+
+	              case UART_RESPONSE_INVALID:
+
+	                  UART_SendText("Invalid Command!\r\n");
+	                  break;
+
+	              case UART_RESPONSE_ERROR:
+
+	                  UART_SendText("UART RX ERROR!\r\n");
+	                  break;
+
+	              default:
+	                  break;
+	          }
+	      }
+  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-	  if (HAL_UART_Receive(&huart2, &rx_data, 1, 10) == HAL_OK)
-	      {
-	          HAL_UART_Transmit(&huart2, &rx_data, 1, HAL_MAX_DELAY);
-	      }
-	  }
 
   /* USER CODE END 3 */
 }
@@ -216,12 +279,6 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : PC13 */
-  GPIO_InitStruct.Pin = GPIO_PIN_13;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
   /*Configure GPIO pin : PA5 */
   GPIO_InitStruct.Pin = GPIO_PIN_5;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -234,7 +291,77 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART2)
+    {
+        switch (uart_rx_byte)
+        {
+            case '1':
 
+                HAL_GPIO_WritePin(GPIOA,
+                                  GPIO_PIN_5,
+                                  GPIO_PIN_SET);
+
+                uart_response_code = UART_RESPONSE_LED_ON;
+
+                break;
+
+            case '0':
+
+                HAL_GPIO_WritePin(GPIOA,
+                                  GPIO_PIN_5,
+                                  GPIO_PIN_RESET);
+
+                uart_response_code = UART_RESPONSE_LED_OFF;
+
+                break;
+
+            case 't':
+            case 'T':
+
+                HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+
+                uart_response_code = UART_RESPONSE_TOGGLE;
+
+                break;
+
+            case 's':
+            case 'S':
+
+                uart_response_code = UART_RESPONSE_STATUS;
+
+                break;
+
+            case '\r':
+            case '\n':
+
+                break;
+
+            default:
+
+                uart_response_code = UART_RESPONSE_INVALID;
+
+                break;
+        }
+
+        /* Receive interrupt yeniden başlatılıyor */
+
+        if (HAL_UART_Receive_IT(&huart2,
+                                (uint8_t *)&uart_rx_byte,
+                                1) != HAL_OK)
+        {
+            uart_response_code = UART_RESPONSE_ERROR;
+        }
+    }
+}
+static void UART_SendText(const char *text)
+{
+    HAL_UART_Transmit(&huart2,
+                      (uint8_t *)text,
+                      strlen(text),
+                      100);
+}
 /* USER CODE END 4 */
 
 /**
@@ -267,3 +394,4 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
+

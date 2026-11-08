@@ -18,3 +18,6 @@ This repository documents my journey of developing an embedded power monitor app
 
 ## 5. UART polling-based communication:
 ![UART polling-based communication](images/Add_UART_polling_based_communication.png)
+
+## 6. Control LD4 using USART2 interrupt:
+![Control LD4 using USART2 interrupt](images/control_LD4_using_USART2_interrupt.gif)
