@@ -41,9 +41,21 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+
+ADC_HandleTypeDef hadc1;
+
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+uint32_t adc_value = 0;
+
+
+
+#define FILTER_SIZE 10
+
+uint32_t adc_buffer[FILTER_SIZE];
+uint32_t adc_filtered = 0;
+
 static volatile uint8_t uart_rx_byte = 0;
 
 static volatile uint8_t uart_response_code = 0;
@@ -62,7 +74,10 @@ static volatile uint8_t uart_response_code = 0;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
+static void UART_SendUInt(uint32_t value);
+uint32_t ADC_ReadFiltered(void);
 static void UART_SendText(const char *text);
 /* USER CODE END PFP */
 
@@ -101,7 +116,17 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
+  uint8_t message[] = "ADC Measurement Started\r\n";
+
+  HAL_UART_Transmit(
+      &huart2,
+      message,
+      sizeof(message) - 1,
+      HAL_MAX_DELAY
+  );
+
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
 
   UART_SendText("\r\nSTM32 UART LED Control Ready\r\n");
@@ -123,63 +148,47 @@ int main(void)
   BSP_LED_Init(LED_GREEN);
 
   /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
-  BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
+
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
   while (1)
   {
-	  uint8_t response = uart_response_code;
 
-	      if (response != UART_RESPONSE_NONE)
-	      {
-	          uart_response_code = UART_RESPONSE_NONE;
+	  adc_filtered = ADC_ReadFiltered();
 
-	          switch (response)
-	          {
-	              case UART_RESPONSE_LED_ON:
+	  /* Voltage calculation in millivolts */
+	  uint32_t voltage_mV = (adc_filtered * 3300U) / 4095U;
 
-	                  UART_SendText("LED ON\r\n");
-	                  break;
+	  /* Send ADC value */
+	  UART_SendText("ADC: ");
+	  UART_SendUInt(adc_filtered);
 
-	              case UART_RESPONSE_LED_OFF:
+	  /* Send voltage */
+	  UART_SendText(" | Voltage: ");
 
-	                  UART_SendText("LED OFF\r\n");
-	                  break;
+	  UART_SendUInt(voltage_mV / 1000U);
 
-	              case UART_RESPONSE_TOGGLE:
+	  UART_SendText(".");
 
-	                  UART_SendText("LED TOGGLED\r\n");
-	                  break;
+	  uint32_t fractional = voltage_mV % 1000U;
 
-	              case UART_RESPONSE_STATUS:
+	  char decimal_part[3] =
+	  {
+	      (char)('0' + fractional / 100U),
+	      (char)('0' + (fractional / 10U) % 10U),
+	      (char)('0' + fractional % 10U)
+	  };
 
-	                  if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5) == GPIO_PIN_SET)
-	                  {
-	                      UART_SendText("LED STATUS: ON\r\n");
-	                  }
-	                  else
-	                  {
-	                      UART_SendText("LED STATUS: OFF\r\n");
-	                  }
+	  HAL_UART_Transmit(&huart2,
+	                    (uint8_t *)decimal_part,
+	                    3,
+	                    100);
 
-	                  break;
+	  UART_SendText(" V\r\n");
 
-	              case UART_RESPONSE_INVALID:
-
-	                  UART_SendText("Invalid Command!\r\n");
-	                  break;
-
-	              case UART_RESPONSE_ERROR:
-
-	                  UART_SendText("UART RX ERROR!\r\n");
-	                  break;
-
-	              default:
-	                  break;
-	          }
-	      }
+	  HAL_Delay(500);
   }
     /* USER CODE END WHILE */
 
@@ -225,6 +234,63 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.ScanConvMode = ADC_SCAN_SEQ_FIXED;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.LowPowerAutoWait = DISABLE;
+  hadc1.Init.LowPowerAutoPowerOff = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc1.Init.SamplingTimeCommon1 = ADC_SAMPLETIME_1CYCLE_5;
+  hadc1.Init.OversamplingMode = DISABLE;
+  hadc1.Init.TriggerFrequencyMode = ADC_TRIGGER_FREQ_HIGH;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -267,7 +333,6 @@ static void MX_USART2_UART_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
   /* USER CODE BEGIN MX_GPIO_Init_1 */
   /* USER CODE END MX_GPIO_Init_1 */
 
@@ -276,85 +341,59 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : PA5 */
-  GPIO_InitStruct.Pin = GPIO_PIN_5;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
   /* USER CODE BEGIN MX_GPIO_Init_2 */
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+static void UART_SendUInt(uint32_t value)
 {
-    if (huart->Instance == USART2)
+    char digits[10];
+    uint8_t count = 0;
+
+    do
     {
-        switch (uart_rx_byte)
-        {
-            case '1':
+        digits[count++] = (char)('0' + (value % 10U));
+        value /= 10U;
 
-                HAL_GPIO_WritePin(GPIOA,
-                                  GPIO_PIN_5,
-                                  GPIO_PIN_SET);
+    } while (value > 0U && count < sizeof(digits));
 
-                uart_response_code = UART_RESPONSE_LED_ON;
+    for (uint8_t i = 0; i < count / 2U; i++)
+    {
+        char temp = digits[i];
 
-                break;
-
-            case '0':
-
-                HAL_GPIO_WritePin(GPIOA,
-                                  GPIO_PIN_5,
-                                  GPIO_PIN_RESET);
-
-                uart_response_code = UART_RESPONSE_LED_OFF;
-
-                break;
-
-            case 't':
-            case 'T':
-
-                HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-
-                uart_response_code = UART_RESPONSE_TOGGLE;
-
-                break;
-
-            case 's':
-            case 'S':
-
-                uart_response_code = UART_RESPONSE_STATUS;
-
-                break;
-
-            case '\r':
-            case '\n':
-
-                break;
-
-            default:
-
-                uart_response_code = UART_RESPONSE_INVALID;
-
-                break;
-        }
-
-        /* Receive interrupt yeniden başlatılıyor */
-
-        if (HAL_UART_Receive_IT(&huart2,
-                                (uint8_t *)&uart_rx_byte,
-                                1) != HAL_OK)
-        {
-            uart_response_code = UART_RESPONSE_ERROR;
-        }
+        digits[i] = digits[count - 1U - i];
+        digits[count - 1U - i] = temp;
     }
+
+    HAL_UART_Transmit(&huart2,
+                      (uint8_t *)digits,
+                      count,
+                      100);
 }
+
+uint32_t ADC_ReadFiltered(void)
+{
+    uint32_t sum = 0;
+
+    for (uint8_t i = 0; i < FILTER_SIZE; i++)
+    {
+        HAL_ADC_Start(&hadc1);
+
+        if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
+        {
+            adc_buffer[i] = HAL_ADC_GetValue(&hadc1);
+        }
+
+        HAL_ADC_Stop(&hadc1);
+
+        sum += adc_buffer[i];
+    }
+
+    return sum / FILTER_SIZE;
+}
+
+
 static void UART_SendText(const char *text)
 {
     HAL_UART_Transmit(&huart2,
@@ -394,4 +433,3 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
-
