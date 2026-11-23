@@ -23,6 +23,4 @@ This repository documents my journey of developing an embedded power monitor app
 ![Control LD4 using USART2 interrupt](images/control_LD4_using_USART2_interrupt.gif)
 
 ## 7. ADC analog voltage measurement and filtering
-![ADC analog voltage measurement and filtering](images\ADC_analog_ voltage_ measurement_and_filtering.gif)
-
-
+![ADC analog voltage measurement and filtering](images/ADC_analog_ voltage_ measurement_and_filtering.gif)
